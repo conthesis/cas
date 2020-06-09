@@ -40,5 +40,5 @@ def service(
 ) -> Service:
     global service_
     if service_ is None:
-        service_ = Service()
+        service_ = Service(storage, normalizer)
     return service_

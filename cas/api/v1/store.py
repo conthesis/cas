@@ -3,6 +3,7 @@ import base64
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 
 import cas.deps as deps
 
@@ -15,5 +16,5 @@ def pointer_as_str(pointer: bytes) -> bytes:
 
 @router.post("/store")
 async def store(body: Dict[str, Any], service=Depends(deps.service)) -> bytes:
-    res = await service.insert(data)
-    return pointer_as_str(res)
+    res = await service.insert(body)
+    return Response(content=pointer_as_str(res))

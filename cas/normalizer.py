@@ -12,7 +12,7 @@ def shake_128(data):
 
 
 def orjson_sorted(data: Dict[Any, Any]) -> bytes:
-    return orjson.dumps(x, option=orjson.OPT_SORT_KEYS)
+    return orjson.dumps(data, option=orjson.OPT_SORT_KEYS)
 
 
 class Normalizer:
@@ -27,5 +27,5 @@ class Normalizer:
 
     def __call__(self, data: Dict[Any, Any]) -> Tuple[bytes, bytes]:
         normalized = self.normalize(data)
-        h = self.identify(normalie)
-        return (h, normalize)
+        h = self.identify(normalized)
+        return (h, normalized)
