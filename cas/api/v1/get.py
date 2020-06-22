@@ -1,7 +1,6 @@
 """"""
-import base64
-from fastapi import APIRouter, Depends, Body
-from fastapi import Request
+
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
 import cas.deps as deps
