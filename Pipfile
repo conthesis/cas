@@ -23,7 +23,6 @@ hiredis = "*"
 python_version = "3.8"
 
 [scripts]
-fmt = "nox -s fmt"
 server = "pipenv run uvicorn --reload cas:app"
 typecheck = "mypy cas"
 test = "python -m pytest"
