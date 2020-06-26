@@ -7,17 +7,14 @@ verify_ssl = true
 mypy = "*"
 pytest = "*"
 requests = "*"
-black = "*"
-fakeredis = "*"
 nox = "*"
 happier = "*"
 
 [packages]
-fastapi = "*"
-uvicorn = "*"
 orjson = "*"
 aredis = "*"
 hiredis = "*"
+asyncio-nats-client = "*"
 
 [requires]
 python_version = "3.8"

@@ -1,4 +1,6 @@
-from typing import Any, Dict, Optional
+from typing import Optional
+
+import orjson
 
 from .normalizer import Normalizer
 from .storage import Storage
@@ -9,8 +11,8 @@ class Service:
         self.storage = storage
         self.normalizer = normalizer
 
-    async def insert(self, data: Dict[Any, Any]) -> bytes:
-        (hash_, data) = self.normalizer(data)
+    async def insert(self, data: bytes) -> bytes:
+        (hash_, data) = self.normalizer(orjson.loads(data))
         await self.storage.insert(hash_, data)
         return hash_
 
