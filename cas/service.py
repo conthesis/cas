@@ -1,7 +1,5 @@
 from typing import Optional
 
-import orjson
-
 from .normalizer import Normalizer
 from .storage import Storage
 
@@ -12,7 +10,7 @@ class Service:
         self.normalizer = normalizer
 
     async def insert(self, data: bytes) -> bytes:
-        (hash_, data) = self.normalizer(orjson.loads(data))
+        (hash_, data) = self.normalizer(data)
         await self.storage.insert(hash_, data)
         return hash_
 

@@ -22,10 +22,13 @@ class Normalizer:
     def identify(self, data: bytes) -> bytes:
         return shake_128(data)
 
-    def normalize(self, data: Dict[Any, Any]) -> bytes:
-        return orjson_sorted(data)
+    def normalize(self, data: bytes) -> bytes:
+        try:
+            return orjson_sorted(orjson.loads(data))
+        except orjson.JSONDecodeError:
+            return data
 
-    def __call__(self, data: Dict[Any, Any]) -> Tuple[bytes, bytes]:
+    def __call__(self, data: bytes) -> Tuple[bytes, bytes]:
         normalized = self.normalize(data)
         h = self.identify(normalized)
         return (h, normalized)
