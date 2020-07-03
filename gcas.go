@@ -71,7 +71,7 @@ func (g *gcas) storeHandler(m *nats.Msg) {
 	m.Respond(hs)
 }
 
-func setupDoneChan() <-chan bool {
+func waitForTerm() {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -79,44 +79,44 @@ func setupDoneChan() <-chan bool {
 		<-sigs
 		done <- true
 	}()
-	return done
+	<-done
 }
 
-func setupSubscriptions(nc *nats.Conn, gc *gcas) []*nats.Subscription {
-	storeSub, err := nc.Subscribe(casStoreTopic, gc.storeHandler)
+func (gc *gcas) setupSubscriptions() []*nats.Subscription {
+	storeSub, err := gc.nc.Subscribe(casStoreTopic, gc.storeHandler)
 	if err != nil {
 		log.Fatalf("Unable to subscribe to topic %s: %s", casGetTopic, err)
 	}
-	getSub, err := nc.Subscribe(casGetTopic, gc.getHandler)
+	getSub, err := gc.nc.Subscribe(casGetTopic, gc.getHandler)
 	if err != nil {
 		log.Fatalf("Unable to subscribe to topic %s: %s", casStoreTopic, err)
 	}
-
 	return []*nats.Subscription{storeSub, getSub}
 }
 
-func main() {
-	nc := connectNats()
-	storage, err := newStorage()
-	if err != nil {
-		log.Fatalf("Failed to create storage driver: %s", err)
-	}
-	done := setupDoneChan()
-	gc := gcas{nc: nc, storage: storage}
-
-	subs := setupSubscriptions(nc, &gc)
-	log.Printf("Connected to NATS")
-
-	<-done
-	log.Printf("Shutting down...")
-
+func (gc *gcas) Close() {
 	for _, sub := range subs {
 		err := sub.Drain()
 		if err != nil {
 			log.Printf("Error unsubscribing: %s", err)
 		}
 	}
-
 	nc.Drain()
+}
+
+func main() {
+	nc := connectNats()
+	storage, err := newStorage()
+
+	if err != nil {
+		log.Fatalf("Failed to create storage driver: %s", err)
+	}
+	gc := gcas{nc: nc, storage: storage}
+	defer gc.Close()
+
+	subs := gc.setupSubscriptions()
+	log.Printf("Connected to NATS")
+	waitForTerm()
+	log.Printf("Shutting down...")
 
 }

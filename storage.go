@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/go-redis/redis/v8"
+	"log"
 )
 
 // Storage is an interface common for storage engines
@@ -34,12 +35,13 @@ func (r *RedisStorage) Get(ctx context.Context, pointer []byte) ([]byte, error) 
 }
 
 func (r *RedisStorage) Store(ctx context.Context, hash []byte, data []byte) error {
-	_, err := r.client.Set(ctx, string(casKey(hash)), data, 0).Result()
-	return err
+	return r.client.Set(ctx, string(casKey(hash)), data, 0).Err()
 }
 
-func (r *RedisStorage) Close() {
-	// Nothing for now
+func (r *RedisStorage) Close()  {
+	if err := r.client.Close(); err != nil {
+		log.Printf("Error closing storage driver %s", err)
+	}
 }
 
 // newRedisStorage creates a new redis storage
@@ -54,18 +56,12 @@ func newRedisStorage() (Storage, error) {
 	}), nil
 }
 
-func newLevelDBStorage() (Storage, error) {
-	return nil, nil
-}
-
 var ErrNoSuchStorageDriver = errors.New("No such storage driver found")
 
 func newStorage() (Storage, error) {
 	storageDriver := getRequiredEnv("STORAGE_DRIVER")
 	if storageDriver == "redis" {
 		return newRedisStorage()
-	} else if storageDriver == "leveldb" {
-		return newLevelDBStorage()
 	} else {
 		return nil, ErrNoSuchStorageDriver
 	}
