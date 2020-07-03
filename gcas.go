@@ -39,7 +39,6 @@ func connectNats() *nats.Conn {
 type gcas struct {
 	nc      *nats.Conn
 	storage Storage
-	subs []*nats.Subscription
 }
 
 func (g *gcas) getHandler(m *nats.Msg) {
@@ -84,25 +83,19 @@ func waitForTerm() {
 }
 
 func (gc *gcas) setupSubscriptions() {
-	storeSub, err := gc.nc.Subscribe(casStoreTopic, gc.storeHandler)
+	_, err := gc.nc.Subscribe(casStoreTopic, gc.storeHandler)
 	if err != nil {
 		log.Fatalf("Unable to subscribe to topic %s: %s", casGetTopic, err)
 	}
-	getSub, err := gc.nc.Subscribe(casGetTopic, gc.getHandler)
+	_, err = gc.nc.Subscribe(casGetTopic, gc.getHandler)
 	if err != nil {
 		log.Fatalf("Unable to subscribe to topic %s: %s", casStoreTopic, err)
 	}
-	gc.subs = []*nats.Subscription{storeSub, getSub}
+
 }
 
 func (gc *gcas) Close() {
 	log.Printf("Shutting down...")
-	for _, sub := range gc.subs {
-		err := sub.Drain()
-		if err != nil {
-			log.Printf("Error unsubscribing: %s", err)
-		}
-	}
 	gc.nc.Drain()
 	gc.storage.Close()
 }
