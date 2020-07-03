@@ -2,7 +2,4 @@
   "extends": [
     "config:base"
   ],
-  "pipenv": {
-    "enabled": true
-  }
 }
