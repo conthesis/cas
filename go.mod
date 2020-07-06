@@ -3,7 +3,7 @@ module github.com/conthesis/cas
 go 1.14
 
 require (
-	github.com/go-redis/redis/v8 v8.0.0-beta.5
+	github.com/go-redis/redis/v8 v8.0.0-beta.6
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/nats-io/nats-server/v2 v2.1.7 // indirect
 	github.com/nats-io/nats.go v1.10.0
