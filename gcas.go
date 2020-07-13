@@ -53,6 +53,7 @@ func (g *gcas) getHandler(m *nats.Msg) {
 	if err != nil {
 		log.Printf("Error fetching pointer %s, err: %s", hex.EncodeToString(m.Data), err)
 		m.Respond([]byte(""))
+		return
 	}
 	m.Respond(data)
 }
