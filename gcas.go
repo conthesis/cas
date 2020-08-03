@@ -3,37 +3,47 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"github.com/nats-io/nats.go"
+	"go.uber.org/fx"
 	"log"
 	url "net/url"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
 const casGetTopic = "conthesis.cas.get"
 const casStoreTopic = "conthesis.cas.store"
 
-func getRequiredEnv(env string) string {
+func getRequiredEnv(env string) (string, error) {
 	val := os.Getenv(env)
 	if val == "" {
-		log.Fatalf("`%s`, a required environment variable was not set", env)
+		return "", fmt.Errorf("`%s`, a required environment variable was not set", env)
 	}
-	return val
+	return val, nil
 }
 
-func connectNats() *nats.Conn {
-	natsURL := getRequiredEnv("NATS_URL")
+func NewNats(lc fx.Lifecycle) (*nats.Conn, error) {
+	natsURL, err := getRequiredEnv("NATS_URL")
+	if err != nil {
+		return nil, err
+	}
 	nc, err := nats.Connect(natsURL)
 
 	if err != nil {
 		if err, ok := err.(*url.Error); ok {
-			log.Fatalf("NATS_URL is of an incorrect format: %s", err.Error())
+			return nil, fmt.Errorf("NATS_URL is of an incorrect format: %w", err)
 		}
-		log.Fatalf("Failed to connect to NATS %T: %s", err, err)
+		return nil, err
 	}
-	return nc
+
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			return nc.Drain()
+		},
+	})
+
+	return nc, nil
 }
 
 type gcas struct {
@@ -72,45 +82,42 @@ func (g *gcas) storeHandler(m *nats.Msg) {
 	m.Respond(hs)
 }
 
-func waitForTerm() {
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		done <- true
-	}()
-	<-done
-}
-
-func (gc *gcas) setupSubscriptions() {
+func setupSubscriptions(gc *gcas) error {
 	_, err := gc.nc.Subscribe(casStoreTopic, gc.storeHandler)
 	if err != nil {
-		log.Fatalf("Unable to subscribe to topic %s: %s", casGetTopic, err)
+		return err
 	}
 	_, err = gc.nc.Subscribe(casGetTopic, gc.getHandler)
 	if err != nil {
-		log.Fatalf("Unable to subscribe to topic %s: %s", casStoreTopic, err)
+		return err
 	}
-
+	return nil
 }
 
-func (gc *gcas) Close() {
-	log.Printf("Shutting down...")
-	gc.nc.Drain()
-	gc.storage.Close()
+func NewGCas(nc *nats.Conn, storage Storage) *gcas {
+	return &gcas{nc, storage}
 }
 
 func main() {
-	nc := connectNats()
-	storage, err := newStorage()
-
-	if err != nil {
-		log.Fatalf("Failed to create storage driver: %s", err)
+	app := fx.New(
+		fx.Provide(
+			NewNats,
+			NewStorage,
+			NewGCas,
+		),
+		fx.Invoke(setupSubscriptions),
+	)
+	startCtx, cancel := context.WithTimeout(context.Background(), app.StartTimeout())
+	defer cancel()
+	if err := app.Start(startCtx); err != nil {
+		log.Fatal(err)
 	}
-	gc := gcas{nc: nc, storage: storage}
-	defer gc.Close()
-	gc.setupSubscriptions()
-	log.Printf("Connected to NATS")
-	waitForTerm()
+
+	<-app.Done()
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), app.StopTimeout())
+	defer cancel()
+	if err := app.Stop(stopCtx); err != nil {
+		log.Fatal(err)
+	}
 }

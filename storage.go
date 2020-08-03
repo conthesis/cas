@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/go-redis/redis/v8"
-	"log"
+	"go.uber.org/fx"
 )
 
 // Storage is an interface common for storage engines
@@ -13,7 +13,7 @@ type Storage interface {
 	Get(context.Context, []byte) ([]byte, error)
 	// Store stores the passed in data and returns its hash
 	Store(context.Context, []byte, []byte) error
-	Close()
+	Close() error
 }
 
 // RedisStorage is storage engine storing things to Redis
@@ -38,15 +38,16 @@ func (r *RedisStorage) Store(ctx context.Context, hash []byte, data []byte) erro
 	return r.client.Set(ctx, string(casKey(hash)), data, 0).Err()
 }
 
-func (r *RedisStorage) Close()  {
-	if err := r.client.Close(); err != nil {
-		log.Printf("Error closing storage driver %s", err)
-	}
+func (r *RedisStorage) Close() error {
+	return r.client.Close()
 }
 
 // newRedisStorage creates a new redis storage
 func newRedisStorage() (Storage, error) {
-	redisURL := getRequiredEnv("REDIS_URL")
+	redisURL, err := getRequiredEnv("REDIS_URL")
+	if err != nil {
+		return nil, err
+	}
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, err
@@ -58,10 +59,22 @@ func newRedisStorage() (Storage, error) {
 
 var ErrNoSuchStorageDriver = errors.New("No such storage driver found")
 
-func newStorage() (Storage, error) {
-	storageDriver := getRequiredEnv("STORAGE_DRIVER")
+func NewStorage(lc fx.Lifecycle) (Storage, error) {
+	storageDriver, err := getRequiredEnv("STORAGE_DRIVER")
+	if err != nil {
+		return nil, err
+	}
 	if storageDriver == "redis" {
-		return newRedisStorage()
+		res, err := newRedisStorage()
+		if err != nil {
+			return nil, err
+		}
+		lc.Append(fx.Hook{
+			OnStop: func(ctx context.Context) error {
+				return res.Close()
+			},
+		})
+		return res, nil
 	} else {
 		return nil, ErrNoSuchStorageDriver
 	}
