@@ -99,25 +99,12 @@ func NewGCas(nc *nats.Conn, storage Storage) *gcas {
 }
 
 func main() {
-	app := fx.New(
+	fx.New(
 		fx.Provide(
 			NewNats,
 			NewStorage,
 			NewGCas,
 		),
 		fx.Invoke(setupSubscriptions),
-	)
-	startCtx, cancel := context.WithTimeout(context.Background(), app.StartTimeout())
-	defer cancel()
-	if err := app.Start(startCtx); err != nil {
-		log.Fatal(err)
-	}
-
-	<-app.Done()
-
-	stopCtx, cancel := context.WithTimeout(context.Background(), app.StopTimeout())
-	defer cancel()
-	if err := app.Stop(stopCtx); err != nil {
-		log.Fatal(err)
-	}
+	).Run()
 }
